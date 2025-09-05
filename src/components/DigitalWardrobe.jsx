@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Shirt, 
   Plus, 
@@ -7,68 +7,164 @@ import {
   Search,
   Calendar,
   TrendingUp,
-  Eye
+  Eye,
+  Edit,
+  Trash2
 } from 'lucide-react';
+import { useWardrobe } from '../hooks/useLocalStorage.js';
+import ImageUpload from './ImageUpload.jsx';
+import WardrobeItem from '../models/WardrobeItem.js';
 
 const DigitalWardrobe = () => {
-  const [wardrobeItems, setWardrobeItems] = useState([
-    {
-      id: 1,
-      name: 'Navy Blue Sweater',
-      category: 'Tops',
-      color: 'Navy',
-      brand: 'H&M',
-      wearCount: 12,
-      lastWorn: '2 days ago',
-      image: '🧥',
-      status: 'frequently-worn'
-    },
-    {
-      id: 2,
-      name: 'High-Waist Jeans',
-      category: 'Bottoms',
-      color: 'Blue',
-      brand: 'Levi\'s',
-      wearCount: 8,
-      lastWorn: '1 week ago',
-      image: '👖',
-      status: 'moderate'
-    },
-    {
-      id: 3,
-      name: 'White Sneakers',
-      category: 'Shoes',
-      color: 'White',
-      brand: 'Nike',
-      wearCount: 25,
-      lastWorn: 'Yesterday',
-      image: '👟',
-      status: 'frequently-worn'
-    },
-    {
-      id: 4,
-      name: 'Black Dress',
-      category: 'Dresses',
-      color: 'Black',
-      brand: 'Zara',
-      wearCount: 3,
-      lastWorn: '2 months ago',
-      image: '👗',
-      status: 'underutilized'
-    }
-  ]);
-
-  const [activeFilter, setActiveFilter] = useState('all');
+  const { items: wardrobeItems, addItem, updateItem, removeItem, wearItem, isLoading, error } = useWardrobe();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showAddItem, setShowAddItem] = useState(false);
-
-  const categories = ['all', 'Tops', 'Bottoms', 'Dresses', 'Shoes', 'Accessories'];
-
-  const filteredItems = wardrobeItems.filter(item => {
-    const matchesFilter = activeFilter === 'all' || item.category === activeFilter;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [sortBy, setSortBy] = useState('name');
+  const [newItem, setNewItem] = useState({
+    name: '',
+    category: '',
+    color: '',
+    brand: '',
+    size: '',
+    price: '',
+    tags: [],
+    season: [],
+    occasion: []
   });
+
+  // Filter and sort items
+  const filteredItems = wardrobeItems
+    .filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.color.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === 'all' || item.category.toLowerCase() === filterCategory.toLowerCase();
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'wearCount':
+          return b.wearCount - a.wearCount;
+        case 'lastWorn':
+          return new Date(b.lastWornDate || 0) - new Date(a.lastWornDate || 0);
+        case 'price':
+          return (b.price || 0) - (a.price || 0);
+        default:
+          return 0;
+      }
+    });
+
+  // Get unique categories
+  const categories = ['all', ...new Set(wardrobeItems.map(item => item.category.toLowerCase()))];
+
+  // Handle image upload
+  const handleImageUpload = (uploadResult) => {
+    setNewItem(prev => ({
+      ...prev,
+      imageUrl: uploadResult.url
+    }));
+  };
+
+  // Handle add item
+  const handleAddItem = async () => {
+    if (!newItem.name || !newItem.category) {
+      alert('Please fill in at least the name and category');
+      return;
+    }
+
+    try {
+      const item = new WardrobeItem({
+        ...newItem,
+        price: newItem.price ? parseFloat(newItem.price) : null,
+        tags: typeof newItem.tags === 'string' ? newItem.tags.split(',').map(t => t.trim()) : newItem.tags
+      });
+
+      await addItem(item);
+      setShowAddModal(false);
+      setNewItem({
+        name: '',
+        category: '',
+        color: '',
+        brand: '',
+        size: '',
+        price: '',
+        tags: [],
+        season: [],
+        occasion: []
+      });
+    } catch (error) {
+      console.error('Error adding item:', error);
+      alert('Failed to add item. Please try again.');
+    }
+  };
+
+  // Handle edit item
+  const handleEditItem = async () => {
+    if (!editingItem) return;
+
+    try {
+      await updateItem(editingItem.itemId, {
+        ...editingItem,
+        price: editingItem.price ? parseFloat(editingItem.price) : null,
+        tags: typeof editingItem.tags === 'string' ? editingItem.tags.split(',').map(t => t.trim()) : editingItem.tags
+      });
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error updating item:', error);
+      alert('Failed to update item. Please try again.');
+    }
+  };
+
+  // Handle delete item
+  const handleDeleteItem = async (itemId) => {
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      try {
+        await removeItem(itemId);
+      } catch (error) {
+        console.error('Error deleting item:', error);
+        alert('Failed to delete item. Please try again.');
+      }
+    }
+  };
+
+  // Handle wear item
+  const handleWearItem = async (itemId) => {
+    try {
+      await wearItem(itemId);
+    } catch (error) {
+      console.error('Error updating wear count:', error);
+    }
+  };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-accent"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading wardrobe: {error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
