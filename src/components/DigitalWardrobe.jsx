@@ -140,65 +140,31 @@ const DigitalWardrobe = () => {
     }
   };
 
-  // Mock data for initial state (will be replaced by real data)
-  const mockItems = [
-    {
-      id: 1,
-      name: 'Navy Blue Sweater',
-      category: 'Tops',
-      color: 'Navy',
-      brand: 'H&M',
-      wearCount: 12,
-      lastWorn: '2 days ago',
-      image: '🧥',
-      status: 'frequently-worn'
-    },
-    {
-      id: 2,
-      name: 'High-Waist Jeans',
-      category: 'Bottoms',
-      color: 'Blue',
-      brand: 'Levi\'s',
-      wearCount: 8,
-      lastWorn: '1 week ago',
-      image: '👖',
-      status: 'moderate'
-    },
-    {
-      id: 3,
-      name: 'White Sneakers',
-      category: 'Shoes',
-      color: 'White',
-      brand: 'Nike',
-      wearCount: 25,
-      lastWorn: 'Yesterday',
-      image: '👟',
-      status: 'frequently-worn'
-    },
-    {
-      id: 4,
-      name: 'Black Dress',
-      category: 'Dresses',
-      color: 'Black',
-      brand: 'Zara',
-      wearCount: 3,
-      lastWorn: '2 months ago',
-      image: '👗',
-      status: 'underutilized'
-    }
-  ]);
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-accent"></div>
+      </div>
+    );
+  }
 
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showAddItem, setShowAddItem] = useState(false);
-
-  const categories = ['all', 'Tops', 'Bottoms', 'Dresses', 'Shoes', 'Accessories'];
-
-  const filteredItems = wardrobeItems.filter(item => {
-    const matchesFilter = activeFilter === 'all' || item.category === activeFilter;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading wardrobe: {error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
